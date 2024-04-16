@@ -40,11 +40,6 @@ type Message struct {
 	SentAt     time.Time `json:"sent_at"`
 }
 
-type Inbox struct {
-	SenderId   int `json:"sender_id"`
-	ReceiverId int `json:"receiver_id"`
-}
-
 const schema string = `
 -- Create users table if not exists
 CREATE TABLE IF NOT EXISTS users (
@@ -68,6 +63,7 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- Create inbox table if not exists
+-- for now this will be ignored
 CREATE TABLE IF NOT EXISTS inbox (
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,

@@ -69,5 +69,43 @@ func (d *DB) Singin(userName, password string) (User, error) {
 	return u, nil
 }
 
-func (d *DB) y()
-func (d *DB) z()
+func (d *DB) SaveMsg(senderId, receiverId, msg string) (id int, err error) {
+	err = d.db.QueryRow(insertMessageQuery, senderId, receiverId, msg).Scan(&id)
+	return
+}
+
+func (d *DB) FindUser(userName string) (u User, err error) {
+	err = d.db.QueryRow("SELECT id, name FROM users WHERE user_name = $1", userName).Scan(&u.Id, &u.Name)
+	if err == sql.ErrNoRows {
+		return User{}, UserDoesNotExist
+	}
+	return
+}
+
+func (d *DB) GetInbox(userID string) ([]User, error) {
+	const q = `SELECT u.user_id, u.name
+        FROM users u
+        JOIN (
+            SELECT DISTINCT sender_id AS user_id
+            FROM messages
+            WHERE receiver_id = $1 OR sender_id = $1
+        ) m ON u.user_id = m.user_id`
+
+	rows, err := d.db.Query(q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := []User{}
+	for rows.Next() {
+		u := User{}
+		err = rows.Scan(&u.UserName, &u.Name)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+
+	return users, nil
+}

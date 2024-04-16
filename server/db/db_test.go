@@ -39,7 +39,7 @@ func TestMain(t *testing.T) {
 	fmt.Printf("Inserted user with ID: %d\n", userID1)
 
 	var userID2 int
-	err = db.QueryRow(insertUserQuery, "John Doe", "john@example2.com", "+1234467890", "lohndoe", "password123").Scan(&userID2)
+	err = db.QueryRow(insertUserQuery, "John Doe1", "john@example2.com", "+1234467890", "lohndoe", "password123").Scan(&userID2)
 	if err != nil {
 		log.Fatalf("Error inserting user: %v\n", err)
 	}
@@ -52,7 +52,8 @@ func TestMain(t *testing.T) {
 		RETURNING message_id
 	`
 	var messageID int
-	err = db.QueryRow(insertMessageQuery, userID1, userID2, "Hello, how are you?").Scan(&messageID)
+	err = db.QueryRow(insertMessageQuery, userID2, userID1, "Hello, how are you?").Scan(&messageID)
+	// err = db.QueryRow(insertMessageQuery, userID1, userID2, "Hello, how are you?").Scan(&messageID)
 	if err != nil {
 		log.Fatalf("Error inserting message: %v\n", err)
 	}
@@ -67,6 +68,9 @@ func TestMain(t *testing.T) {
 		log.Fatalf("Error inserting to inbox: %v\n", err)
 	}
 	fmt.Printf("Inserted message with ID: %d\n", messageID)
+
+	fmt.Println(d.GetInbox("1"))
+	fmt.Println(d.GetInbox("5"))
 }
 
 func dropAll(db *sql.DB) error {
