@@ -1,16 +1,21 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	cdb "chithat/db"
 
+	"golang.org/x/net/websocket"
 	_ "golang.org/x/net/websocket"
 )
 
@@ -19,9 +24,35 @@ type wrappedWriter struct {
 	statusCode int
 }
 
-func (w *wrappedWriter) WriteHeader(statusCode int) {
-	w.ResponseWriter.WriteHeader(statusCode)
-	w.statusCode = statusCode
+func (wr *wrappedWriter) WriteHeader(statusCode int) {
+	wr.ResponseWriter.WriteHeader(statusCode)
+	wr.statusCode = statusCode
+}
+
+func (wr *wrappedWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := wr.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("not a hijacker?")
+	}
+	return h.Hijack()
+}
+
+func ensureSignedin(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		v, err := r.Cookie(cookieName)
+		if err != nil {
+			http.Redirect(w, r, "/sinin", http.StatusMovedPermanently)
+			return
+		}
+		user, ok := cookie[v.Value]
+		if !ok {
+			http.Redirect(w, r, "/sinin", http.StatusMovedPermanently)
+			return
+		}
+
+		nr := r.WithContext(context.WithValue(r.Context(), "user", user))
+		h.ServeHTTP(w, nr)
+	})
 }
 
 func logger(h http.Handler) http.Handler {
@@ -32,7 +63,7 @@ func logger(h http.Handler) http.Handler {
 			statusCode:     http.StatusOK,
 		}
 
-		h.ServeHTTP(&wr, r)
+		h.ServeHTTP(w, r)
 		log.Println(wr.statusCode, r.Method, r.URL.Path, time.Since(start))
 	})
 }
@@ -42,7 +73,7 @@ func main() {
 
 	handler.HandleFunc("POST /singin", singIn)
 	handler.HandleFunc("POST /singup", singUp)
-	handler.HandleFunc("/ws", ws)
+	handler.Handle("/ws", ensureSignedin(websocket.Handler(ws)))
 
 	addr := ":8001"
 	server := http.Server{
@@ -149,5 +180,5 @@ func mustDo[T any](t T, err error) T {
 	return t
 }
 
-func ws(w http.ResponseWriter, r *http.Request) {
+func ws(conn *websocket.Conn) {
 }
