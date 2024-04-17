@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"log"
 
 	_ "github.com/lib/pq"
 )
@@ -24,6 +25,14 @@ func InitDB(connectionString string) (*DB, error) {
 	return &DB{db: db}, nil
 }
 
+func MustInitDB(connectionString string) *DB {
+	db, err := InitDB(connectionString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return db
+}
+
 type DBErr struct {
 	Err string
 	Msg string
@@ -31,6 +40,10 @@ type DBErr struct {
 
 func newdbeErr(e string) *DBErr {
 	return &DBErr{Err: e}
+}
+
+func newdbeErrAndMsg(e, m string) *DBErr {
+	return &DBErr{Err: e, Msg: m}
 }
 
 func (dbe *DBErr) Error() string {
@@ -42,6 +55,10 @@ var (
 	UserDoesNotExist         = newdbeErr("user name does not exist")
 	UserPasswordDoesNotMatch = newdbeErr("user password does not match")
 )
+
+func (d *DB) Close() error {
+	return d.db.Close()
+}
 
 func (d *DB) Singup(name, userName, password string) (User, error) {
 	var count int
@@ -66,7 +83,7 @@ func (d *DB) Singup(name, userName, password string) (User, error) {
 func (d *DB) Singin(userName, password string) (User, error) {
 	u := User{}
 	var actualPass string
-	if err := d.db.QueryRow("SELECT id, name, password FROM users WHERE user_name = $1", userName).Scan(&u.Id, &u.Name, &actualPass); err != nil {
+	if err := d.db.QueryRow("SELECT user_id, name, password FROM users WHERE user_name = $1", userName).Scan(&u.Id, &u.Name, &actualPass); err != nil {
 		if err == sql.ErrNoRows {
 			return User{}, UserDoesNotExist
 		}
