@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"errors"
 
 	_ "github.com/lib/pq"
 )
@@ -25,10 +24,23 @@ func InitDB(connectionString string) (*DB, error) {
 	return &DB{db: db}, nil
 }
 
+type DBErr struct {
+	Err string
+	Msg string
+}
+
+func newdbeErr(e string) *DBErr {
+	return &DBErr{Err: e}
+}
+
+func (dbe *DBErr) Error() string {
+	return dbe.Err
+}
+
 var (
-	UserExists               = errors.New("user name already exists")
-	UserDoesNotExist         = errors.New("user name does not exist")
-	UserPasswordDoesNotMatch = errors.New("user password does not match")
+	UserExists               = newdbeErr("user name already exists")
+	UserDoesNotExist         = newdbeErr("user name does not exist")
+	UserPasswordDoesNotMatch = newdbeErr("user password does not match")
 )
 
 func (d *DB) Singup(name, userName, password string) (User, error) {
@@ -74,22 +86,30 @@ func (d *DB) SaveMsg(senderId, receiverId, msg string) (id int, err error) {
 	return
 }
 
-func (d *DB) FindUser(userName string) (u User, err error) {
-	err = d.db.QueryRow("SELECT id, name FROM users WHERE user_name = $1", userName).Scan(&u.Id, &u.Name)
+func (d *DB) FindUserById(userId string) (u User, err error) {
+	err = d.db.QueryRow("SELECT user_id, name, user_name FROM users WHERE user_id = $1", userId).Scan(&u.Id, &u.Name, &u.UserName)
 	if err == sql.ErrNoRows {
 		return User{}, UserDoesNotExist
 	}
 	return
 }
 
-func (d *DB) GetInbox(userID string) ([]User, error) {
-	const q = `SELECT u.user_id, u.name
-        FROM users u
-        JOIN (
-            SELECT DISTINCT sender_id AS user_id
-            FROM messages
-            WHERE receiver_id = $1 OR sender_id = $1
-        ) m ON u.user_id = m.user_id`
+func (d *DB) FindUserByUserName(userName string) (u User, err error) {
+	err = d.db.QueryRow("SELECT user_id, name FROM users WHERE user_name = $1", userName).Scan(&u.Id, &u.Name)
+	if err == sql.ErrNoRows {
+		return User{}, UserDoesNotExist
+	}
+	return
+}
+
+func (d *DB) GetAllMessagesByUserId(userID string) ([]Message, error) {
+	if _, err := d.FindUserById(userID); err != nil {
+		return nil, err
+	}
+
+	const q = `SELECT message_id, sender_id, receiver_id, message_text, sent_at
+		FROM messages
+		WHERE receiver_id = $1 OR sender_id = $1`
 
 	rows, err := d.db.Query(q, userID)
 	if err != nil {
@@ -97,15 +117,37 @@ func (d *DB) GetInbox(userID string) ([]User, error) {
 	}
 	defer rows.Close()
 
-	users := []User{}
+	inbx := []Message{}
 	for rows.Next() {
-		u := User{}
-		err = rows.Scan(&u.UserName, &u.Name)
+		m := Message{}
+		err = rows.Scan(&m.Id, &m.SenderId, &m.ReceiverId, &m.MessageText, &m.SentAt)
 		if err != nil {
 			return nil, err
 		}
-		users = append(users, u)
+		inbx = append(inbx, m)
 	}
 
-	return users, nil
+	/*
+	   rows, err := d.db.Query(q, userID)
+
+	   	if err != nil {
+	   		return nil, err
+	   	}
+
+	   defer rows.Close()
+
+	   users := []User{}
+
+	   	for rows.Next() {
+	   		u := User{}
+	   		err = rows.Scan(&u.UserName, &u.Name)
+	   		if err != nil {
+	   			return nil, err
+	   		}
+	   		users = append(users, u)
+	   	}
+
+	   return users, nil
+	*/
+	return inbx, nil
 }

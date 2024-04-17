@@ -33,11 +33,11 @@ type User struct {
 }
 
 type Message struct {
-	Id         int       `json:"id,omitemtpy"`
-	SenderId   int       `json:"sender_id"`
-	ReceiverId int       `json:"receiver_id"`
-	Message    string    `json:"message"`
-	SentAt     time.Time `json:"sent_at"`
+	Id          int       `json:"id,omitemtpy"`
+	SenderId    int       `json:"sender_id"`
+	ReceiverId  int       `json:"receiver_id"`
+	MessageText string    `json:"message_text"`
+	SentAt      time.Time `json:"sent_at"`
 }
 
 const schema string = `

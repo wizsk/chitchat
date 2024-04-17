@@ -69,8 +69,11 @@ func TestMain(t *testing.T) {
 	}
 	fmt.Printf("Inserted message with ID: %d\n", messageID)
 
-	fmt.Println(d.GetInbox("1"))
-	fmt.Println(d.GetInbox("5"))
+	fmt.Printf("user 1: ")
+	fmt.Println(d.GetAllMessagesByUserId("1"))
+	fmt.Printf("user 2: ")
+	fmt.Println(d.GetAllMessagesByUserId("2"))
+	fmt.Println(d.GetAllMessagesByUserId("4"))
 }
 
 func dropAll(db *sql.DB) error {
