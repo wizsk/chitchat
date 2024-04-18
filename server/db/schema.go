@@ -14,7 +14,6 @@ const (
 		INSERT INTO messages (sender_id, receiver_id, message_text)
 		VALUES ($1, $2, $3)
 		RETURNING message_id
-
 	`
 
 	insertInboxQuery string = `
@@ -38,6 +37,15 @@ type Message struct {
 	ReceiverId  int       `json:"receiver_id"`
 	MessageText string    `json:"message_text"`
 	SentAt      time.Time `json:"sent_at"`
+}
+
+type AllInbox struct {
+	Inbox []Inbox
+}
+
+type Inbox struct {
+	User     User
+	Messages []Message
 }
 
 const schema string = `

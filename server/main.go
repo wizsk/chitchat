@@ -73,9 +73,11 @@ func logger(h http.Handler) http.Handler {
 
 func main() {
 	handler := http.NewServeMux()
-	handler.Handle("GET /", ensureSignedin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(mustDo(os.ReadFile("templates/index.html")))
-	})))
+	// handler.Handle("GET /", ensureSignedin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 	w.Write(mustDo(os.ReadFile("templates/index.html")))
+	// })))
+
+	handler.Handle("GET /", ensureSignedin(http.FileServer(http.Dir("templates"))))
 
 	handler.HandleFunc("GET /signin", func(w http.ResponseWriter, r *http.Request) {
 		if checkCookie(r) != nil {
@@ -84,6 +86,7 @@ func main() {
 		}
 		w.Write(mustDo(os.ReadFile("templates/signin.html")))
 	})
+
 	handler.HandleFunc("GET /signup", func(w http.ResponseWriter, r *http.Request) {
 		if checkCookie(r) != nil {
 			http.Redirect(w, r, "/", http.StatusMovedPermanently)
@@ -240,6 +243,10 @@ func mustDo[T any](t T, err error) T {
 	return t
 }
 
+func discardErr[T any](t T, _ error) T {
+	return t
+}
+
 func ws(conn *websocket.Conn) {
 	defer conn.Close()
 	u, ok := conn.Request().Context().Value("puser").(*cdb.User)
@@ -248,27 +255,57 @@ func ws(conn *websocket.Conn) {
 		return
 	}
 
-	conn.Write([]byte("Hello"))
 	conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataUser), User: u})))
+	conn.Write(mustDo(json.Marshal(
+		WsData{
+			DataType: wsdt(WsDataGetInbox),
+			AllInbox: mustDo(db.GetAllMessagesOfUser(u.Id)),
+		},
+	)))
+	data := make([]byte, 1024)
+	online.add(u, conn)
 
 	for {
-		// if err := websocket.Message.Receive(conn, &); err != nil {
-		// 	break
 		msg := WsData{}
-		data := make([]byte, 1024)
 		i, err := conn.Read(data)
 		if err != nil {
 			if _, err = conn.Write([]byte("?r")); err != nil {
+				online.remove(u.Id)
 				fmt.Println(err)
-				return
+				break
 			}
 			fmt.Println(err)
 			continue
 		}
 
-		// }
-		// fmt.Println(msg, d)
-		fmt.Println(json.Unmarshal(data[:i], &msg))
-		fmt.Fprintf(conn, "hii go a msg form yaaa: %q", string(data[:i]))
+		if err := json.Unmarshal(data[:i], &msg); err != nil {
+			log.Println(err)
+		}
+		switch msg.DataType {
+		case wsdt(WsDataMessageSend):
+			msg.Message.SenderId = u.Id
+			id, err := db.SaveMsg(msg.Message)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			msg.Message.Id = id
+			msg.Message.SentAt = time.Now()
+			conn.Write(mustDo(json.Marshal(msg)))
+
+			msg.Uuid = ""
+			msg.DataType = wsdt(WsDataMessageReceive)
+			online.sendMsg(msg.Message.ReceiverId, mustDo(json.Marshal(msg)))
+			continue
+
+		case wsdt(WsDataPing):
+			conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataPing)})))
+			continue
+		default:
+			// TODO: send error
+			fmt.Fprintf(conn, "hii go a msg form yaaa: %s", string(data[:i]))
+		}
+
 	}
 }

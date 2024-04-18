@@ -3,6 +3,8 @@ package db
 import (
 	"database/sql"
 	"log"
+	"sort"
+	"strconv"
 
 	_ "github.com/lib/pq"
 )
@@ -54,6 +56,7 @@ var (
 	UserExists               = newdbeErr("user name already exists")
 	UserDoesNotExist         = newdbeErr("user name does not exist")
 	UserPasswordDoesNotMatch = newdbeErr("user password does not match")
+	InvalidUserID            = newdbeErr("user password does not match")
 )
 
 func (d *DB) Close() error {
@@ -98,12 +101,26 @@ func (d *DB) Singin(userName, password string) (User, error) {
 	return u, nil
 }
 
-func (d *DB) SaveMsg(senderId, receiverId, msg string) (id int, err error) {
-	err = d.db.QueryRow(insertMessageQuery, senderId, receiverId, msg).Scan(&id)
+func (d *DB) SaveMsg(m *Message) (id int, err error) {
+	err = d.db.QueryRow(insertMessageQuery, m.SenderId, m.ReceiverId, m.MessageText).Scan(&id)
 	return
 }
 
-func (d *DB) FindUserById(userId string) (u User, err error) {
+// either a stirng or an int :)
+func (d *DB) FindUserById(userId interface{}) (u User, err error) {
+	switch userId.(type) {
+	case int:
+		break
+	case string:
+		v, _ := userId.(string)
+		_, err := strconv.Atoi(v)
+		if err != nil {
+			return u, InvalidUserID
+		}
+	default:
+		return u, InvalidUserID
+	}
+
 	err = d.db.QueryRow("SELECT user_id, name, user_name FROM users WHERE user_id = $1", userId).Scan(&u.Id, &u.Name, &u.UserName)
 	if err == sql.ErrNoRows {
 		return User{}, UserDoesNotExist
@@ -119,8 +136,10 @@ func (d *DB) FindUserByUserName(userName string) (u User, err error) {
 	return
 }
 
-func (d *DB) GetAllMessagesByUserId(userID string) ([]Message, error) {
-	if _, err := d.FindUserById(userID); err != nil {
+// sorted by last send but the actyual messages are in reverse
+func (d *DB) GetAllMessagesOfUser(userID int) ([]*Inbox, error) {
+	user, err := d.FindUserById(userID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -134,37 +153,40 @@ func (d *DB) GetAllMessagesByUserId(userID string) ([]Message, error) {
 	}
 	defer rows.Close()
 
-	inbx := []Message{}
+	inbox := map[int]*Inbox{}
 	for rows.Next() {
 		m := Message{}
 		err = rows.Scan(&m.Id, &m.SenderId, &m.ReceiverId, &m.MessageText, &m.SentAt)
 		if err != nil {
 			return nil, err
 		}
-		inbx = append(inbx, m)
+		uId := m.SenderId
+		if user.Id == m.SenderId {
+			uId = m.ReceiverId
+		}
+
+		w, ok := inbox[uId]
+		if ok {
+			w.Messages = append(w.Messages, m)
+		} else {
+			u, err := d.FindUserById(uId)
+			if err != nil {
+				log.Printf("this should not happend err: %v\n", err)
+				return nil, err
+			}
+			inbox[uId] = &Inbox{u, []Message{m}}
+		}
 	}
 
-	/*
-	   rows, err := d.db.Query(q, userID)
+	a := []*Inbox{}
 
-	   	if err != nil {
-	   		return nil, err
-	   	}
+	for _, v := range inbox {
+		a = append(a, v)
+	}
 
-	   defer rows.Close()
+	sort.Slice(a, func(i, j int) bool {
+		return a[i].Messages[0].SentAt.Unix() < a[j].Messages[0].SentAt.Unix()
+	})
 
-	   users := []User{}
-
-	   	for rows.Next() {
-	   		u := User{}
-	   		err = rows.Scan(&u.UserName, &u.Name)
-	   		if err != nil {
-	   			return nil, err
-	   		}
-	   		users = append(users, u)
-	   	}
-
-	   return users, nil
-	*/
-	return inbx, nil
+	return a, nil
 }
