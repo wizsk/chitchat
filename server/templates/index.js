@@ -1,4 +1,4 @@
-
+const inbox_data_id_name = "data-inbox-user-id";
 const socket = new WebSocket(`ws://${window.location.host}/ws`);
 
 socket.onopen = function (event) {
@@ -6,11 +6,12 @@ socket.onopen = function (event) {
 };
 
 let user;
-let inbox;
+let inboxes;
+let selected_inbox_user;
+let message_send = {};
+
 let recived_first_msg = false;
 socket.onmessage = function (event) {
-    // console.log("Received message:", event.data);
-    document.getElementById("output").value += event.data + "\n";
     let data;
     try {
         data = JSON.parse(event.data);
@@ -18,20 +19,78 @@ socket.onmessage = function (event) {
         console.error("while parsing:", err);
         return;
     }
+    console.log(data)
 
     switch (data.data_type) {
         case "user":
             console.log("user data:", data);
-            user = data;
+            const me = document.getElementById("me");
+            user = data.user;
+            me.innerHTML = `Welcome back: ${user.name}<br>username: @${user.user_name}`;
             break;
         case "get_inbox":
             console.log("get inbox", data);
             // inbox = constructInbox(data);
-            inbox = data;
+            inboxes = data.all_inbox;
+
+            const friends = document.getElementById("friends");
+            friends.innerHTML = inboxes.reverse().map((v) => `<div ${inbox_data_id_name}="${v.user.id}">${v.user.name}</div>`).join("");
+
+            document.querySelectorAll(`[${inbox_data_id_name}]`).forEach((elm) => {
+                elm.addEventListener("click", (e) => {
+                    const inbox = document.getElementById("inbox");
+                    const id = Number(e.target.getAttribute(inbox_data_id_name));
+                    for (let i = 0; i < inboxes.length; i++) {
+                        if (inboxes[i].user.id === id) {
+                            ibx = inboxes[i];
+                            inbox.innerHTML = ibx.messages.map(v => {
+                                return `${v.sender_id === user.id ? user.user_name : ibx.user.user_name}: ${v.message_text}`
+                            }).join("<br>");
+                            selected_inbox_user = ibx.user;
+                            break;
+                        }
+                    }
+                })
+            })
+            break;
+        case "message_send":
+            {
+                const rid = data.message.receiver_id;
+                for (let i = 0; i < inboxes.length; i++) {
+                    if (inboxes[i].user.id === rid) {
+                        inboxes[i].messages.push(data.message);
+                        break;
+                    }
+                }
+                if (selected_inbox_user.id !== rid) return;
+                const inbox = document.getElementById("inbox");
+                inbox.innerHTML += `<br>${user.user_name}: ${data.message.message_text}`;
+            }
+            break;
+        case "message_receive":
+            console.log(data)
+            {
+                const rid = data.message.sender_id;
+                for (let i = 0; i < inboxes.length; i++) {
+                    if (inboxes[i].user.id === rid) {
+                        inboxes[i].messages.push(data.message);
+                        break;
+                    }
+                }
+
+                if (selected_inbox_user.id !== rid) return;
+                const inbox = document.getElementById("inbox");
+                inbox.innerHTML += `<br>${data.user.user_name}: ${data.message.message_text}`;
+            }
             break;
         default:
             console.log("unknown data", data);
     }
+
+    let x = [1, 2, 3, 4];
+    x.map((v) => {
+
+    })
 
     // if (!recived_first_msg) {
     //     recived_first_msg = true;
@@ -58,15 +117,15 @@ function sendMessage() {
 }
 
 function sendDM() {
-    const to = Number(document.getElementById("receiver_id").value.trim());
-    if (isNaN(to)) { alert("id dee vai"); return; }
-
     const msg = document.getElementById("msg").value.trim();
     if (msg === "") { alert("msg texxt dee vai"); return; }
 
+    if (selected_inbox_user == undefined) { alert("select an inbox"); return; }
+
     document.getElementById("input").value = "";
-    const d = { "data_type": "message_send", "uuid": generateUUID(), "message": { "receiver_id": to, "message_text": msg } };
-    console.log(d);
+    const uuid = generateUUID();
+    const d = { "data_type": "message_send", "uuid": uuid, "message": { "receiver_id": selected_inbox_user.id, "message_text": msg } };
+    message_send[uuid] = { message_text: msg, receiver_id: selected_inbox_user.id };
     socket.send(JSON.stringify(d));
 }
 

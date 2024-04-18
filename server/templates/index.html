@@ -11,17 +11,24 @@
 
 <body>
     <h1>WebSocket Client</h1>
-    <textarea id="output" cols="40" rows="10" disabled></textarea>
-    <br>
-    <input type="text" id="input">
+    <!-- <textarea id="output" cols="40" rows="10" disabled></textarea>
+    <br> -->
+    <input type="text" id="input" placeholder="send any message :)">
     <button onclick="sendMessage()">Send</button>
 
     <br>
     <br>
     <br>
-    <input type="text" id="receiver_id" placeholder="send message to">
-    <input type="text" id="msg" placeholder="send message to">
-    <button onclick="sendDM()">Send msg</button>
+    <!-- <input type="text" id="receiver_id" placeholder="send message to"> -->
+
+    <br><br>
+    <div>
+        <div id="me"></div>
+        <div id="friends"> </div>
+        <input type="text" id="msg" placeholder="send message to">
+        <button onclick="sendDM()">Send msg</button>
+        <div id="inbox"></div>
+    </div>
 </body>
 
 </html>

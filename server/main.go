@@ -295,6 +295,7 @@ func ws(conn *websocket.Conn) {
 			conn.Write(mustDo(json.Marshal(msg)))
 
 			msg.Uuid = ""
+			msg.User = u
 			msg.DataType = wsdt(WsDataMessageReceive)
 			online.sendMsg(msg.Message.ReceiverId, mustDo(json.Marshal(msg)))
 			continue

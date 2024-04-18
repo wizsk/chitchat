@@ -44,8 +44,8 @@ type AllInbox struct {
 }
 
 type Inbox struct {
-	User     User
-	Messages []Message
+	User     User      `json:"user"`
+	Messages []Message `json:"messages"`
 }
 
 const schema string = `

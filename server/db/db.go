@@ -185,7 +185,7 @@ func (d *DB) GetAllMessagesOfUser(userID int) ([]*Inbox, error) {
 	}
 
 	sort.Slice(a, func(i, j int) bool {
-		return a[i].Messages[0].SentAt.Unix() < a[j].Messages[0].SentAt.Unix()
+		return a[i].Messages[len(a[i].Messages)-1].SentAt.Unix() < a[j].Messages[len(a[j].Messages)-1].SentAt.Unix()
 	})
 
 	return a, nil
