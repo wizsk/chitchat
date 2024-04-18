@@ -33,7 +33,7 @@ type User struct {
 }
 
 type Message struct {
-	Id          int       `json:"id,omitemtpy"`
+	Id          int       `json:"id,omitempty"`
 	SenderId    int       `json:"sender_id"`
 	ReceiverId  int       `json:"receiver_id"`
 	MessageText string    `json:"message_text"`

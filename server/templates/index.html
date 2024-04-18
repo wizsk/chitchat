@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Client</title>
+</head>
+
+<body>
+    <h1>WebSocket Client</h1>
+    <textarea id="output" cols="40" rows="10" disabled></textarea>
+    <br>
+    <input type="text" id="input">
+    <button onclick="sendMessage()">Send</button>
+
+    <script>
+        const socket = new WebSocket(`ws://${window.location.host}/ws`);
+
+        socket.onopen = function (event) {
+            console.log("WebSocket connected");
+        };
+
+        socket.onmessage = function (event) {
+            console.log("Received message:", event.data);
+            document.getElementById("output").value += event.data + "\n";
+        };
+
+        socket.onclose = function (event) {
+            console.log("WebSocket disconnected");
+        };
+
+        function sendMessage(e) {
+            if (e) {
+                e.event.preventDefault();
+            }
+
+            const message = document.getElementById("input").value;
+            socket.send(message);
+            console.log("Sent message:", message);
+            document.getElementById("input").value = "";
+        }
+    </script>
+</body>
+
+</html>
