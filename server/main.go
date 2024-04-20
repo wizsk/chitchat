@@ -77,7 +77,7 @@ func main() {
 	// 	w.Write(mustDo(os.ReadFile("templates/index.html")))
 	// })))
 
-	handler.Handle("GET /", ensureSignedin(http.FileServer(http.Dir("templates"))))
+	handler.Handle("GET /", ensureSignedin(http.FileServer(http.Dir("frontend/dist/"))))
 
 	handler.HandleFunc("GET /signin", func(w http.ResponseWriter, r *http.Request) {
 		if checkCookie(r) != nil {
@@ -107,6 +107,17 @@ func main() {
 
 	// defer db.Close()
 	// defer fmt.Println("closed")
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			x := strings.Builder{}
+			x.WriteString("online users:")
+			for _, v := range online.m {
+				x.WriteString("\n\t" + v.u.UserName)
+			}
+			fmt.Println(x.String())
+		}
+	}()
 
 	log.Println("listening http://localhost" + addr)
 	if err := server.ListenAndServe(); err != nil {
@@ -258,8 +269,8 @@ func ws(conn *websocket.Conn) {
 	conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataUser), User: u})))
 	conn.Write(mustDo(json.Marshal(
 		WsData{
-			DataType: wsdt(WsDataGetInbox),
-			AllInbox: mustDo(db.GetAllMessagesOfUser(u.Id)),
+			DataType:   wsdt(WsDataGetInbox),
+			AllInboxes: mustDo(db.GetAllMessagesOfUser(u.Id)),
 		},
 	)))
 	data := make([]byte, 1024)
@@ -269,12 +280,11 @@ func ws(conn *websocket.Conn) {
 		msg := WsData{}
 		i, err := conn.Read(data)
 		if err != nil {
-			if _, err = conn.Write([]byte("?r")); err != nil {
+			if _, err = conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataPing)}))); err != nil {
 				online.remove(u.Id)
 				fmt.Println(err)
 				break
 			}
-			fmt.Println(err)
 			continue
 		}
 
@@ -305,7 +315,7 @@ func ws(conn *websocket.Conn) {
 			continue
 		default:
 			// TODO: send error
-			fmt.Fprintf(conn, "hii go a msg form yaaa: %s", string(data[:i]))
+			// fmt.Fprintf(conn, "hii go a msg form yaaa: %s", string(data[:i]))
 		}
 
 	}
