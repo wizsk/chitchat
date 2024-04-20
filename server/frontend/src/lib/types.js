@@ -26,6 +26,8 @@
  * @typedef data
  * @type {object}
  * @property {string} data_type 
+ * @property {string} error 
+ * @property {string} search_term 
  * @property {user} user
  * @property {message} message
  * @property {[{user: user, messages: [message]}]} all_inboxes

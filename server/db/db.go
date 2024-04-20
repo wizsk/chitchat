@@ -133,6 +133,7 @@ func (d *DB) FindUserByUserName(userName string) (u User, err error) {
 	if err == sql.ErrNoRows {
 		return User{}, UserDoesNotExist
 	}
+	u.UserName = userName
 	return
 }
 

@@ -97,6 +97,16 @@ func main() {
 
 	handler.HandleFunc("POST /signin", signIn)
 	handler.HandleFunc("POST /signup", signUp)
+	handler.Handle("GET /signout", ensureSignedin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie(cookieName)
+		if err != nil {
+			http.Redirect(w, r, "/signin", http.StatusMovedPermanently)
+			return
+		}
+		removeC(c.Value)
+		http.Redirect(w, r, "/signin", http.StatusMovedPermanently)
+	})))
+
 	handler.Handle("GET /ws", ensureSignedin(websocket.Handler(ws)))
 
 	addr := ":8001"
@@ -107,17 +117,17 @@ func main() {
 
 	// defer db.Close()
 	// defer fmt.Println("closed")
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			x := strings.Builder{}
-			x.WriteString("online users:")
-			for _, v := range online.m {
-				x.WriteString("\n\t" + v.u.UserName)
-			}
-			fmt.Println(x.String())
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		time.Sleep(1 * time.Second)
+	// 		x := strings.Builder{}
+	// 		x.WriteString("online users:")
+	// 		for _, v := range online.m {
+	// 			x.WriteString("\n\t" + v.u.UserName)
+	// 		}
+	// 		fmt.Println(x.String())
+	// 	}
+	// }()
 
 	log.Println("listening http://localhost" + addr)
 	if err := server.ListenAndServe(); err != nil {
@@ -147,6 +157,15 @@ func saveC(str string, u *cdb.User) {
 	cookieLock.Lock()
 	defer cookieLock.Unlock()
 	cookie[str] = u
+	if err := os.WriteFile(cookieFile, mustDo(json.Marshal(cookie)), 0770); err != nil {
+		panic(err)
+	}
+}
+
+func removeC(c string) {
+	cookieLock.Lock()
+	defer cookieLock.Unlock()
+	delete(cookie, c)
 	if err := os.WriteFile(cookieFile, mustDo(json.Marshal(cookie)), 0770); err != nil {
 		panic(err)
 	}
@@ -282,7 +301,7 @@ func ws(conn *websocket.Conn) {
 		if err != nil {
 			if _, err = conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataPing)}))); err != nil {
 				online.remove(u.Id)
-				fmt.Println(err)
+				fmt.Println("remed user", u.UserName, err)
 				break
 			}
 			continue
@@ -304,18 +323,25 @@ func ws(conn *websocket.Conn) {
 			msg.Message.SentAt = time.Now()
 			conn.Write(mustDo(json.Marshal(msg)))
 
-			msg.Uuid = ""
 			msg.User = u
 			msg.DataType = wsdt(WsDataMessageReceive)
 			online.sendMsg(msg.Message.ReceiverId, mustDo(json.Marshal(msg)))
 			continue
+
+		case wsdt(WsDataSearchUser):
+			user, err := db.FindUserByUserName(msg.SearchTerm)
+			if err != nil {
+				conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataSearchUser), Error: "user not found"})))
+				continue
+			}
+			conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataSearchUser), User: &user})))
 
 		case wsdt(WsDataPing):
 			conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataPing)})))
 			continue
 		default:
 			// TODO: send error
-			// fmt.Fprintf(conn, "hii go a msg form yaaa: %s", string(data[:i]))
+			fmt.Println("got unkown data form:", u.UserName, string(data[:i]))
 		}
 
 	}

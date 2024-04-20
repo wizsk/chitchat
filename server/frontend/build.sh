@@ -3,5 +3,5 @@
 while true;do
     pnpm build
     echo
-    inotifywait -qe modify './src'
+    inotifywait -qe modify './src' || exit
 done
