@@ -57,7 +57,6 @@
         break;
       case "message_send":
         if (data.error) {
-          console.log("err sending msg", data);
           return;
         }
 
@@ -164,7 +163,6 @@
 
       const data = { data_type: "search_user", search_term: search_input };
       try {
-        console.log("sending serach req:", data);
         socket.send(JSON.stringify(data));
       } catch (err) {
         console.error(err);
@@ -173,49 +171,55 @@
   }
 </script>
 
-<main>
-  <p>Helloo {user?.name}</p>
-  <p>Helloo @{user?.user_name}</p>
-  <p>id @{user?.id}</p>
-  <div></div>
+<main class="mx-4">
+  <div class="font-bold text-xl">Helloo {user?.name}</div>
+  <!-- <p>Helloo @{user?.user_name}</p>
+  <p>id @{user?.id}</p> -->
 
   <div class="flex flex-row">
-    <div>
+    <div class="w-[20vw] h-[90vh]">
       <div>
         <input
           type="text"
-          class=" bg-red-400"
+          class="text-xl w-full p-2 border border-red-500"
+          placeholder="find user by username"
           bind:value={search_input}
           on:input={send_search}
         />
       </div>
 
-      <div bind:this={chat_list}>
+      <div bind:this={chat_list} class="h-full overflow-y-scroll">
         {#if all_inboxes}
           {#each all_inboxes as inbox, i}
             <button
               on:click={() => {
                 inbox_selected = inbox;
-                console.log("selected inbox:", inbox);
                 if (searched_user) {
                   searched_user = false;
                   all_inboxes = tmp_all_inboxes;
                 }
               }}
-              class="block h-20 bg-slate-200 font-bold"
+              class="h-20 w-full text-left flex flex-col"
             >
-              @{inbox.user.user_name}
+              <span class="font-bold text-xl">@{inbox.user.user_name}</span>
+              <span class="opacity-80"
+                >{inbox.messages
+                  ? inbox.messages[inbox.messages.length - 1].message_text
+                  : ""}</span
+              >
             </button>
           {/each}
         {:else}
-          <div>No user found</div>
+          <div class="w-full h-full flex justify-center items-center">
+            No user found
+          </div>
         {/if}
       </div>
     </div>
 
-    <div class="bg-blue-400 flex-1">
+    <div class="bg-blue-100 flex-1 h-[90vh]">
       {#if inbox_selected}
-        <div bind:this={message_area} class="h-[70vh] overflow-y-auto">
+        <div bind:this={message_area} class="h-full overflow-y-auto">
           {#if inbox_selected.messages}
             {#each inbox_selected.messages as m}
               <div
@@ -229,14 +233,15 @@
               </div>
             {/each}
           {:else}
-            send new message
+            <div class="w-full h-full flex justify-center items-center">
+              send new message
+            </div>
           {/if}
         </div>
         <form
+          class="w-full flex"
           on:submit|preventDefault={() => {
             if (!message_input_text) return;
-            console.log("sending msg", message_input_text);
-            console.log("send_to:", inbox_selected.user.id, message_input_text);
             const d = {
               data_type: "message_send",
               message: {
@@ -250,11 +255,18 @@
             message_input_text = "";
           }}
         >
-          <input type="text" bind:value={message_input_text} />
+          <input
+            class="w-full flex-1"
+            type="text"
+            placeholder="send a message"
+            bind:value={message_input_text}
+          />
           <button>Send</button>
         </form>
       {:else}
-        <div>select an inbox</div>
+        <div class="w-full h-full flex justify-center items-center">
+          select an inbox
+        </div>
       {/if}
     </div>
   </div>
