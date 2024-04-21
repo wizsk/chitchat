@@ -301,7 +301,9 @@ func ws(conn *websocket.Conn) {
 		if err != nil {
 			if _, err = conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataPing)}))); err != nil {
 				online.remove(u.Id)
-				fmt.Println("remed user", u.UserName, err)
+				fmt.Println("removed user, and conn closed?", u.UserName)
+				conn.Close()
+				fmt.Println()
 				break
 			}
 			continue
@@ -315,16 +317,20 @@ func ws(conn *websocket.Conn) {
 			msg.Message.SenderId = u.Id
 			id, err := db.SaveMsg(msg.Message)
 			if err != nil {
-				log.Println(err)
+				conn.Write(mustDo(json.Marshal(WsData{DataType: wsdt(WsDataMessageSend), Error: "message could not be delivered"})))
 				continue
 			}
 
 			msg.Message.Id = id
 			msg.Message.SentAt = time.Now()
+			sentTo, _ := db.FindUserById(msg.Message.ReceiverId)
+			msg.User = &sentTo
+			// will be sending the user too :)
 			conn.Write(mustDo(json.Marshal(msg)))
 
 			msg.User = u
 			msg.DataType = wsdt(WsDataMessageReceive)
+			// swqap the user
 			online.sendMsg(msg.Message.ReceiverId, mustDo(json.Marshal(msg)))
 			continue
 
@@ -341,8 +347,6 @@ func ws(conn *websocket.Conn) {
 			continue
 		default:
 			// TODO: send error
-			fmt.Println("got unkown data form:", u.UserName, string(data[:i]))
 		}
-
 	}
 }

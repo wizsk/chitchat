@@ -1,5 +1,7 @@
 <script>
   import { afterUpdate, tick } from "svelte";
+  /** * @type {any} */
+  let array_any = []; // just to get rid of the warning :)
 
   /** * @type {user} */
   let user;
@@ -50,44 +52,61 @@
         all_inboxes = data.all_inboxes;
 
         if (!all_inboxes) {
-          /** * @type {any} */
-          let x = []; // just to get rid of the warning :)
-          all_inboxes = x;
+          all_inboxes = array_any;
         }
         break;
       case "message_send":
-        // todo: use a tmp all inbox?
+        if (data.error) {
+          console.log("err sending msg", data);
+          return;
+        }
+
         for (let i = 0; i < all_inboxes.length; i++) {
           if (all_inboxes[i].user.id === data.message.receiver_id) {
-            if (all_inboxes[i].messages) {
-              all_inboxes[i].messages.push(data.message);
+            const n = all_inboxes.splice(i, 1);
+
+            if (n[0].messages) {
+              n[0].messages.push(data.message);
             } else {
-              all_inboxes[i].messages = [data.message];
+              n[0].messages = [data.message];
             }
 
-            // all_inboxes[i].messages.push(data.message);
-
-            if (all_inboxes[i].user.id === inbox_selected.user.id) {
-              inbox_selected = all_inboxes[i];
+            if (n[0].user.id === inbox_selected.user.id) {
+              inbox_selected = n[0];
               msg_area_scroll_to_bottom();
             }
-            break;
+            all_inboxes.unshift(n[0]);
+            all_inboxes = all_inboxes;
+            return;
           }
         }
+
+        if (all_inboxes) {
+          all_inboxes.unshift({ user: data.user, messages: [data.message] });
+          all_inboxes = all_inboxes;
+          inbox_selected = all_inboxes[0];
+        } else {
+          all_inboxes = [{ user: data.user, messages: [data.message] }];
+          inbox_selected = all_inboxes[0];
+        }
         break;
+
       case "message_receive":
         for (let i = 0; i < all_inboxes.length; i++) {
           if (all_inboxes[i].user.id === data.message.sender_id) {
-            if (all_inboxes[i].messages) {
-              all_inboxes[i].messages.push(data.message);
+            const n = all_inboxes.splice(i, 1);
+            if (n[0].messages) {
+              n[0].messages.push(data.message);
             } else {
-              all_inboxes[i].messages = [data.message];
+              n[0].messages = [data.message];
             }
 
-            if (all_inboxes[i].user.id === inbox_selected.user.id) {
-              inbox_selected = all_inboxes[i];
+            if (n[0].user.id === inbox_selected.user.id) {
+              inbox_selected = n[0];
               msg_area_scroll_to_bottom();
             }
+            all_inboxes.unshift(n[0]);
+            all_inboxes = all_inboxes;
             return;
           }
         }
@@ -95,26 +114,22 @@
         all_inboxes = all_inboxes;
         break;
       case "search_user":
-        if (data.error) {
-          console.log("no user found");
-          all_inboxes = all_inboxes;
-          return;
-        }
-        // chat_list.innerHTML = "";
-        // const div = document.createElement("div");
-        // div.innerText = `@${data.user.user_name}`;
-        // div.classList.add("block", "h-20", "bg-slate-200", "font-bold");
-        // chat_list.appendChild(div);
-        // curr_all_inboxes = [{ user: data.user, messages: undefined }];
-        // console.log(curr_all_inboxes);
-        all_inboxes.unshift({ user: data.user, messages: undefined });
-        all_inboxes = all_inboxes;
+        tmp_all_inboxes = all_inboxes;
+        searched_user = true;
 
+        if (data.error) {
+          all_inboxes = undefined;
+        } else {
+          all_inboxes = [{ user: data.user, messages: undefined }];
+        }
         break;
       default:
         console.log("received unknown data:", data);
     }
   };
+
+  let tmp_all_inboxes = undefined;
+  let searched_user = false;
 
   afterUpdate(() => {
     msg_area_scroll_to_bottom();
@@ -128,10 +143,25 @@
   let search_set_timeout_id;
   function send_search() {
     // TODO: clear stuff
-    if (search_input === "") return;
+    search_input = search_input.trim();
+    if (search_input === "") {
+      all_inboxes = tmp_all_inboxes;
+      tmp_all_inboxes = undefined;
+      searched_user = false;
+      return;
+    }
 
     clearInterval(search_set_timeout_id);
     search_set_timeout_id = setTimeout(() => {
+      for (let i = 0; i < all_inboxes.length; i++) {
+        if (all_inboxes[i].user.user_name === search_input) {
+          tmp_all_inboxes = all_inboxes;
+          searched_user = true;
+          all_inboxes = [all_inboxes[i]];
+          return;
+        }
+      }
+
       const data = { data_type: "search_user", search_term: search_input };
       try {
         console.log("sending serach req:", data);
@@ -166,20 +196,19 @@
             <button
               on:click={() => {
                 inbox_selected = inbox;
-                console.log(
-                  i,
-                  "name",
-                  inbox.user.name,
-                  "user_name",
-                  inbox.user.user_name,
-                  message_area,
-                );
+                console.log("selected inbox:", inbox);
+                if (searched_user) {
+                  searched_user = false;
+                  all_inboxes = tmp_all_inboxes;
+                }
               }}
               class="block h-20 bg-slate-200 font-bold"
             >
               @{inbox.user.user_name}
             </button>
           {/each}
+        {:else}
+          <div>No user found</div>
         {/if}
       </div>
     </div>
@@ -206,6 +235,7 @@
         <form
           on:submit|preventDefault={() => {
             if (!message_input_text) return;
+            console.log("sending msg", message_input_text);
             console.log("send_to:", inbox_selected.user.id, message_input_text);
             const d = {
               data_type: "message_send",
