@@ -48,6 +48,12 @@
         break;
       case "get_inbox":
         all_inboxes = data.all_inboxes;
+
+        if (!all_inboxes) {
+          /** * @type {any} */
+          let x = []; // just to get rid of the warning :)
+          all_inboxes = x;
+        }
         break;
       case "message_send":
         // todo: use a tmp all inbox?
@@ -61,12 +67,13 @@
 
             // all_inboxes[i].messages.push(data.message);
 
-            if (all_inboxes[i].user.id === inbox_selected.user.id)
+            if (all_inboxes[i].user.id === inbox_selected.user.id) {
               inbox_selected = all_inboxes[i];
+              msg_area_scroll_to_bottom();
+            }
             break;
           }
         }
-        msg_area_scroll_to_bottom();
         break;
       case "message_receive":
         for (let i = 0; i < all_inboxes.length; i++) {
@@ -84,6 +91,8 @@
             return;
           }
         }
+        all_inboxes.unshift({ user: data.user, messages: [data.message] });
+        all_inboxes = all_inboxes;
         break;
       case "search_user":
         if (data.error) {
