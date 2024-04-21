@@ -6,8 +6,8 @@
   /** * @type {[inbox]}  */
   let all_inboxes;
 
-  /** * @type {[inbox]}  */
-  let curr_all_inboxes;
+  // /** * @type {[inbox]}  */
+  // let curr_all_inboxes;
 
   /** * @type {inbox}  */
   let inbox_selected = undefined;
@@ -48,12 +48,19 @@
         break;
       case "get_inbox":
         all_inboxes = data.all_inboxes;
-        curr_all_inboxes = all_inboxes;
         break;
       case "message_send":
+        // todo: use a tmp all inbox?
         for (let i = 0; i < all_inboxes.length; i++) {
           if (all_inboxes[i].user.id === data.message.receiver_id) {
-            all_inboxes[i].messages.push(data.message);
+            if (all_inboxes[i].messages) {
+              all_inboxes[i].messages.push(data.message);
+            } else {
+              all_inboxes[i].messages = [data.message];
+            }
+
+            // all_inboxes[i].messages.push(data.message);
+
             if (all_inboxes[i].user.id === inbox_selected.user.id)
               inbox_selected = all_inboxes[i];
             break;
@@ -64,19 +71,24 @@
       case "message_receive":
         for (let i = 0; i < all_inboxes.length; i++) {
           if (all_inboxes[i].user.id === data.message.sender_id) {
-            all_inboxes[i].messages.push(data.message);
+            if (all_inboxes[i].messages) {
+              all_inboxes[i].messages.push(data.message);
+            } else {
+              all_inboxes[i].messages = [data.message];
+            }
 
-            if (all_inboxes[i].user.id === inbox_selected.user.id)
+            if (all_inboxes[i].user.id === inbox_selected.user.id) {
               inbox_selected = all_inboxes[i];
-            break;
+              msg_area_scroll_to_bottom();
+            }
+            return;
           }
         }
-        msg_area_scroll_to_bottom();
         break;
       case "search_user":
         if (data.error) {
           console.log("no user found");
-          curr_all_inboxes = all_inboxes;
+          all_inboxes = all_inboxes;
           return;
         }
         // chat_list.innerHTML = "";
@@ -84,8 +96,10 @@
         // div.innerText = `@${data.user.user_name}`;
         // div.classList.add("block", "h-20", "bg-slate-200", "font-bold");
         // chat_list.appendChild(div);
-        curr_all_inboxes = [{ user: data.user, messages: undefined }];
-        console.log(curr_all_inboxes);
+        // curr_all_inboxes = [{ user: data.user, messages: undefined }];
+        // console.log(curr_all_inboxes);
+        all_inboxes.unshift({ user: data.user, messages: undefined });
+        all_inboxes = all_inboxes;
 
         break;
       default:
@@ -138,8 +152,8 @@
       </div>
 
       <div bind:this={chat_list}>
-        {#if curr_all_inboxes}
-          {#each curr_all_inboxes as inbox, i}
+        {#if all_inboxes}
+          {#each all_inboxes as inbox, i}
             <button
               on:click={() => {
                 inbox_selected = inbox;
