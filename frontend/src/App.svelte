@@ -54,6 +54,7 @@
         if (!all_inboxes) {
           all_inboxes = array_any;
         }
+        inbox_selected = all_inboxes.length > 0 ? all_inboxes[0] : undefined;
         break;
       case "message_send":
         if (data.error) {
@@ -181,7 +182,7 @@
       <div>
         <input
           type="text"
-          class="text-xl w-full p-2 border border-red-500"
+          class="text-xl w-[98%] p-2 rounded border border-red-500"
           placeholder="find user by username"
           bind:value={search_input}
           on:input={send_search}
@@ -199,14 +200,22 @@
                   all_inboxes = tmp_all_inboxes;
                 }
               }}
-              class="h-20 w-full text-left flex flex-col"
+              class="h-20 w-full text-left flex items-center gap-1"
             >
-              <span class="font-bold text-xl">@{inbox.user.user_name}</span>
-              <span class="opacity-80"
-                >{inbox.messages
-                  ? inbox.messages[inbox.messages.length - 1].message_text
-                  : ""}</span
+              <span
+                class="h-14 w-14 text-3xl rounded-full flex items-center justify-center bg-red-200"
               >
+                <span>{inbox.user.name[0].toUpperCase()}</span>
+              </span>
+
+              <span class="flex flex-col">
+                <span class="text-xl">@{inbox.user.user_name}</span>
+                <span class="opacity-80"
+                  >{inbox.messages
+                    ? inbox.messages[inbox.messages.length - 1].message_text
+                    : ""}</span
+                >
+              </span>
             </button>
           {/each}
         {:else}
@@ -217,7 +226,7 @@
       </div>
     </div>
 
-    <div class="bg-blue-100 flex-1 h-[90vh]">
+    <div class="bg-gray-100 flex-1 h-[90vh]">
       {#if inbox_selected}
         <div bind:this={message_area} class="h-full overflow-y-auto">
           {#if inbox_selected.messages}
@@ -256,12 +265,12 @@
           }}
         >
           <input
-            class="w-full flex-1"
+            class="w-full p-2 flex-1 border border-red-500 rounded"
             type="text"
             placeholder="send a message"
             bind:value={message_input_text}
           />
-          <button>Send</button>
+          <button class="p-2">Send</button>
         </form>
       {:else}
         <div class="w-full h-full flex justify-center items-center">
